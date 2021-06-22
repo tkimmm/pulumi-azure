@@ -1,10 +1,15 @@
+[![Build Status](https://dev.azure.com/nc-azure-thomas-kim/Pulumi/_apis/build/status/Pulumi?branchName=master)](https://dev.azure.com/nc-azure-thomas-kim/Pulumi/_build/latest?definitionId=1&branchName=master)
+
 # Pulumi Boilerplate
 
-#### Rationale
+## Overview
 This is a boilerplate project for the [Pulumi](https://pulumi.com) framework. This project uses pulumi in conjunction with Azure Storage for state persistence.
 
-![Diagram](./docs/diagram.png)
+This project has been setup to run 
+- Locally from a users local computer
+- Through CI/CD using Azure Pipelines, please refer to [Azure DevOps documentation](./docs/pipelines.md) for further information
 
+# Setup Instructions
 
 ## Required Tooling 
 
@@ -15,11 +20,12 @@ UNIX/Mac
 - [Pulumi](https://formulae.brew.sh/formula/pulumi)
 
 
-## Running Instructions
+## Local Running Instructions
 
 - Login through Azure CLI
 
-- Update env vars in 1_init_pulumi.sh
+- Update export variables in 1_init_pulumi.sh and 2_run_cmd.sh
+
 - **Note** Please update default values to globally unique names i.e Keyvault etc.
 
 ![Diagram](./docs/env.png)
@@ -32,19 +38,21 @@ sh 1_init_pulumi.sh
 
 It is recommended to follow the menu options chronologically for a new project.
 
-## Contributing
+![Diagram](./docs/diagram.png)
 
-Currently there are no pipelines running off this project, please follow feature flagging and open a PR if you require changes to this project.
+# Contributing
+
+Pipelines trigger of heads feature, dev and master
 
 e.g
 
 ```
 feature/add-web-app
 bugfix/remove-trailing-char
+hotfix/fix-comma
 ```
 
-## TODO
+# TODO
 - Error handling to prevent overwriting existing key
-- Add azure-pipelines.yml and running instructions
-- Add Docker version and test for x86 Windows
+- Extend Docker version and test for x86 Windows
 
