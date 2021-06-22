@@ -1,0 +1,36 @@
+# File: pipelines/apply.yml
+steps:
+
+- task: AzureCLI@2
+  displayName: Get Storage Account Key and set env vars
+  name: GetStorageKey
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnection }}
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      KEY=$(az storage account keys list -n ${{ parameters.sa }} --query "[0].value" -o=tsv)
+      AZURE_STORAGE_ACCOUNT=${{ parameters.sa }}
+
+      echo "##vso[task.setvariable variable=STORAGE_KEY;issecret=true]$KEY"
+      echo "##vso[task.setvariable variable=AZURE_STORAGE_CONTAINER;issecret=true]${{ parameters.stateContainer }}"
+      echo "##vso[task.setvariable variable=AZURE_STORAGE_ACCOUNT;issecret=true]$AZURE_STORAGE_ACCOUNT"
+
+- task: Npm@1
+  displayName: Install required node packages
+  inputs:
+    command: install
+    workingDir: ${{ parameters.workingDir }}
+
+- task: Pulumi@1
+  displayName: Login and Apply
+  env:
+    AZURE_STORAGE_CONTAINER: $(AZURE_STORAGE_CONTAINER)
+    AZURE_STORAGE_KEY: $(STORAGE_KEY)
+    AZURE_STORAGE_ACCOUNT: $(AZURE_STORAGE_ACCOUNT)
+  inputs:
+    azureSubscription: ${{ parameters.serviceConnection }}
+    command: up
+    cwd: ${{ parameters.workingDir }}
+    args: --non-interactive --diff --suppress-permalink --yes
+    stack: dev

@@ -1,0 +1,45 @@
+# File: pipelines/template-setup.yml
+steps:
+- bash: az --version
+  displayName: 'Show Azure CLI version'
+
+- bash: echo ${AZURE_DEVOPS_CLI_PAT} | az devops login
+  env:
+    AZURE_DEVOPS_CLI_PAT: $(System.AccessToken)
+  displayName: 'Login Azure DevOps Extension'
+
+- bash: az devops configure --defaults organization=$(System.TeamFoundationCollectionUri) project=$(System.TeamProject) --use-git-aliases true
+  displayName: 'Set default Azure DevOps organization and project'
+
+- bash: |
+    pulumi version
+  displayName: 'Check Pulumi Version'
+
+# Resource checking to go here 
+# - task: AzureCLI@2
+#   displayName: 'AZ Login and Set ENV Vars'
+#   inputs:
+#     azureSubscription: $(Azure.ServiceConnection)
+#     addSpnToEnvironment: true
+#     scriptType: bash
+#     scriptLocation: inlineScript
+#     failOnStderr: true
+#     inlineScript: |
+#       TEST_KEY=`az keyvault secret show --name ${{ parameters.testSecret }} --vault-name ${{ parameters.kv }} | jq -r '.value'`
+
+# Example of Agent setup if not using Azure DevOps Pulumi plugin
+#  - script: |
+#               curl -fsSL https://get.pulumi.com | sh
+#               export PATH=$HOME/.pulumi/bin:$PATH
+#               echo "##vso[task.setvariable variable=PATH;]$HOME/.pulumi/bin:$PATH"
+#               pulumi version
+#             displayName: install pulumi
+#           - task: NodeTool@0
+#             displayName: install node
+#             inputs:
+#               versionSpec: ">=14"
+#               checkLatest: true
+#           - script: |
+#               npm install
+#             workingDirectory: src
+#             displayName: install npm dependencies

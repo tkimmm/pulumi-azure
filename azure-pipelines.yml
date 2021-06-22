@@ -1,0 +1,145 @@
+name: $(BuildDefinitionName).$(DayOfYear)$(Rev:.r)
+trigger:
+  batch: true
+  branches:
+    include:
+      - feature/*
+      - dev
+      # - stage
+      - master
+
+resources:
+- repo: self
+
+# variables:
+# - group: 'PipelineVariables'
+
+parameters:
+- name: ServiceConnection
+  displayName: Select Service Connection
+  type: string
+  default: WestEuropePipelineConnection
+  values:
+  - WestEuropePipelineConnection
+- name: WorkingFolder
+  displayName: Select folder
+  type: string
+  default: 'test'
+
+stages:
+- stage: SetupAgent
+  displayName: Setup Agent Environment
+  jobs:
+  - job: SetupAgent
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/setup.yml
+
+- stage: PreviewFeature
+  dependsOn: SetupAgent
+  condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/heads/feature/'))
+  displayName: Preview Feature
+  jobs:
+  - job: PreviewPulumiProject
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/preview.yml
+      parameters:
+       sa: 'ncinfrastorage'
+       stateContainer: 'pulumi-state'
+       serviceConnection: ${{ parameters.ServiceConnection }}
+       workingDir: ${{ parameters.WorkingFolder }}
+
+- stage: DeployDev
+  dependsOn: SetupAgent
+  condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/heads/dev'))
+  displayName: Deploy Dev Environment
+  jobs:
+  - job: PreviewPulumiProject
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/preview.yml
+      parameters:
+       sa: 'ncinfrastorage'
+       stateContainer: 'pulumi-state'
+       serviceConnection: ${{ parameters.ServiceConnection }}
+       workingDir: ${{ parameters.WorkingFolder }}
+  - job: waitForValidation
+    dependsOn: PreviewPulumiProject
+    displayName: Wait for external validation
+    pool: server
+    timeoutInMinutes: 4320 # job times out in 3 days
+    steps:
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: |
+          thomas.kim@nordcloud.com
+        instructions: 'Please validate the build configuration and resume'
+        onTimeout: 'reject'
+  - job: ApplyPulumiProject
+    dependsOn: waitForValidation
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/apply.yml
+      parameters:
+       sa: 'ncinfrastorage'
+       stateContainer: 'pulumi-state'
+       serviceConnection: ${{ parameters.ServiceConnection }}
+       workingDir: ${{ parameters.WorkingFolder }}
+
+- stage: DeployProd
+  dependsOn: SetupAgent
+  condition: and(succeeded(), startsWith(variables['build.sourceBranch'], 'refs/heads/master'))
+  displayName: Deploy Production Environment
+  jobs:
+  - job: PreviewPulumiProject
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/preview.yml
+      parameters:
+       sa: 'ncinfrastorage'
+       stateContainer: 'pulumi-state'
+       serviceConnection: ${{ parameters.ServiceConnection }}
+       workingDir: ${{ parameters.WorkingFolder }}
+  - job: waitForValidation
+    dependsOn: PreviewPulumiProject
+    displayName: Wait for external validation
+    pool: server
+    timeoutInMinutes: 4320 # job times out in 3 days
+    steps:
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: |
+          thomas.kim@nordcloud.com
+        instructions: 'Please validate the build configuration and resume'
+        onTimeout: 'reject'
+  - job: ApplyPulumiProject
+    dependsOn: waitForValidation
+    timeoutInMinutes: 10
+    cancelTimeoutInMinutes: 2
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - template: ./pipelines/apply.yml
+      parameters:
+       sa: 'ncinfrastorage'
+       stateContainer: 'pulumi-state'
+       serviceConnection: ${{ parameters.ServiceConnection }}
+       workingDir: ${{ parameters.WorkingFolder }}
