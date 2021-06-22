@@ -1,0 +1,11 @@
+version: '3.3'
+services:
+  pulumi-svc:
+        container_name: "nc-pulumi"
+        volumes:
+          - ./dev:/app
+        env_file:
+          - ./dev/pulumi.env
+        image: 'pulumi/pulumi'
+        entrypoint: [ "bash", "-c", "az login && cd app && pulumi login --cloud-url azblob://pulumi-state && npm i && pulumi preview --stack dev --non-interactive"]
+
