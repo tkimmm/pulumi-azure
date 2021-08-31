@@ -11,9 +11,8 @@ export PROJECT_NAME="nc-infra"
 export STORAGE_ACCOUNT_NAME="ncinfrastorage"
 # Enter name of master project key vault
 export AZURE_KEY_VAULT_NAME="ncinfrademokv"
-# Enter name of state container 
-export CONTAINER_NAME="pulumi-state"
-
+# Enter project language e.g azure-python aws-typescript azure-typescript
+export PROJ_LANG="azure-typescript"
 
 set -e 
 
@@ -23,6 +22,7 @@ Blue='\033[0;34m'
 Red='\033[0;31m'
 NC='\033[0m'
 
+export CONTAINER_NAME="pulumi-state"
 export AZURE_KEYVAULT_AUTH_VIA_CLI=true
 
 echo "${Yellow}Login to Azure CLI using${NC} az login ${Yellow}before running${NC}"
@@ -49,6 +49,13 @@ select opt in "${options[@]}"
 do
     case $opt in
         "Create Master Project")
+            echo "${Blue}Checking for existing resource group $RG_NAME... ${NC}"
+	    export RG_EXISTS=$(az group exists -n $RG_NAME)
+	    if [[ $PULUMI_KEY_EXISTS -eq 'true' ]]
+	    then 
+		    echo "${Blue}Resource group $RG_NAME found skipping... ${NC}"
+
+	    else
             echo "${Blue}Creating resource group $RG_NAME... ${NC}"
 	    az group create -l $LOCATION -n $RG_NAME
 
@@ -57,19 +64,27 @@ do
 	    export NEWKEY=$(az storage account keys list --account-name $STORAGE_ACCOUNT_NAME --resource-group $RG_NAME --output json)
 	    export AZ_NEW_KEY=$(echo $NEWKEY | jq -r .[0].value)
 	    az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $AZ_NEW_KEY
+	    fi
 
-            echo "${Blue}Creating Azure Key Vault $AZURE_KEY_VAULT_NAME in $RG_NAME... ${NC}"
-	    az keyvault create -n $AZURE_KEY_VAULT_NAME --location $LOCATION --resource-group $RG_NAME 
-	    
-	    # Optional operations on the keyvault 
-	    #--ops decrypt encrypt export import sign unwrapKey verify wrapKey
+	    echo "${Blue}Checking for existing key pulumi-key in $AZURE_KEY_VAULT_NAME... ${NC}"
+	    PULUMI_KEY_EXISTS=$(az keyvault key show --vault $AZURE_KEY_VAULT_NAME --name pulumi-key --query "attributes.enabled")
 
-	    echo "${Blue}Creating encryption key (pulumi-key) in $AZURE_KEY_VAULT_NAME... ${NC}"
-	    az keyvault key create --vault-name $AZURE_KEY_VAULT_NAME -n pulumi-key
+	    if [[ $PULUMI_KEY_EXISTS -eq 'true' ]]
+	    then
+		    echo "${Blue}Key found skipping...${NC}"
+	    else
+		    echo "${Blue}Creating Azure Key Vault $AZURE_KEY_VAULT_NAME in $RG_NAME... ${NC}"
+		    az keyvault create -n $AZURE_KEY_VAULT_NAME --location $LOCATION --resource-group $RG_NAME 
+		    # Optional operations on the keyvault 
+		    #--ops decrypt encrypt export import sign unwrapKey verify wrapKey
 
-	    echo "${Blue}Setting policy on encryption key (pulumi-key) in $AZURE_KEY_VAULT_NAME... ${NC}"
-	    azGetSA
-	    az keyvault set-policy -n $AZURE_KEY_VAULT_NAME --object-id $USER_OBJECT_ID --resource-group $RG_NAME --certificate-permissions create delete get import list restore update --key-permissions decrypt encrypt get list update create import delete recover backup restore --resource-group $RG_NAME --secret-permissions delete get list purge recover restore
+		    echo "${Blue}Creating encryption key (pulumi-key) in $AZURE_KEY_VAULT_NAME... ${NC}"
+		    az keyvault key create --vault-name $AZURE_KEY_VAULT_NAME -n pulumi-key
+
+		    echo "${Blue}Setting policy on encryption key (pulumi-key) in $AZURE_KEY_VAULT_NAME... ${NC}"
+		    azGetSA
+		    az keyvault set-policy -n $AZURE_KEY_VAULT_NAME --object-id $USER_OBJECT_ID --resource-group $RG_NAME --certificate-permissions create delete get import list restore update --key-permissions decrypt encrypt get list update create import delete recover backup restore --resource-group $RG_NAME --secret-permissions delete get list purge recover restore
+	    fi
             ;;
         "Create new project")
 	    echo "${Green}Enter new project name:${NC}"
@@ -77,7 +92,7 @@ do
 	    azGetSA
 	    azLogin
 	    echo "${Blue}Creating project $NEW_PROJECT_NAME with secrets provider $AZURE_KEY_VAULT_NAME ${NC}"
-	    pulumi new azure-typescript --dir $PWD/$NEW_PROJECT_NAME --secrets-provider="azurekeyvault://$AZURE_KEY_VAULT_NAME.vault.azure.net/keys/pulumi-key"
+	    pulumi new $PROJ_LANG --dir $PWD/$NEW_PROJECT_NAME --secrets-provider="azurekeyvault://$AZURE_KEY_VAULT_NAME.vault.azure.net/keys/pulumi-key"
             ;;
         "Deploy existing project")
 	    echo "${Green}Enter folder of existing project: \\ne.g ${NC} $PWD/<folder name> ${NC}"
@@ -89,9 +104,11 @@ do
         "Destroy existing project")
 	    echo "${Green}Enter name of project to ${Red}destroy${Green}:${NC}"
 	    read PROJECT_TO_DESTROY
+	    echo "${Green}Enter name of stack to ${Red}destroy${Green}:${NC}"
+	    read STACK_TO_DESTROY
 	    azGetSA
 	    azLogin
-	    cd $PWD/$PROJECT_TO_DESTROY && pulumi destroy && pulumi stack rm $PROJECT_TO_DESTROY
+	    cd $PWD/$PROJECT_TO_DESTROY && pulumi destroy && pulumi stack rm $STACK_TO_DESTORY
             ;;
         "Quit")
             break
