@@ -1,5 +1,3 @@
-[![Build Status](https://dev.azure.com/nc-azure-thomas-kim/Pulumi/_apis/build/status/Pulumi?branchName=master)](https://dev.azure.com/nc-azure-thomas-kim/Pulumi/_build/latest?definitionId=1&branchName=master)
-
 # Pulumi Boilerplate
 
 ## Overview
