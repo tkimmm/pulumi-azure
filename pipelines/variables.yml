@@ -1,0 +1,8 @@
+variables:
+  - name: stack
+    value: "tmdevtypescript"
+    readonly: true
+
+  - name: targetfolder
+    value: "techmonthly-ts"
+    readonly: true
